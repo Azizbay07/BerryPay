@@ -10,29 +10,29 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icon-192.png" />
   <link rel="stylesheet" href="style.css" />
-  <title>BerryPay Premium</title>
+  <title>BerryPay 8.2 Pro</title>
 </head>
 <body>
   <div class="splash" id="splash">
     <div class="splash-logo">B</div>
     <div class="splash-title">BerryPay Pro</div>
-    <div class="splash-sub">Designed &amp; Created by <b>Azizbay 🍓</b><br>Made for Farm Workers</div>
+    <div class="splash-sub">Version 8.2<br>Designed &amp; Created by <b>Azizbay 🍓</b></div>
   </div>
 
   <div class="lock-screen" id="lockScreen">
     <div class="lock-card">
       <div class="lock-logo">B</div>
       <h1>BerryPay Pro</h1>
-      <p id="lockSubtitle">Enter PIN to continue</p>
+      <p id="lockSubtitle">Create a 4 digit PIN</p>
       <div class="pin-dots" id="pinDots"><span></span><span></span><span></span><span></span></div>
       <div class="pin-pad">
         <button onclick="pinPress('1')">1</button><button onclick="pinPress('2')">2</button><button onclick="pinPress('3')">3</button>
         <button onclick="pinPress('4')">4</button><button onclick="pinPress('5')">5</button><button onclick="pinPress('6')">6</button>
         <button onclick="pinPress('7')">7</button><button onclick="pinPress('8')">8</button><button onclick="pinPress('9')">9</button>
-        <button onclick="resetPinSetup()">Reset</button><button onclick="pinPress('0')">0</button><button onclick="pinBack()">⌫</button>
+        <button onclick="resetPin()">Reset</button><button onclick="pinPress('0')">0</button><button onclick="pinBack()">⌫</button>
       </div>
-      <button class="face-btn" onclick="faceUnlock()">🔐 <span id="faceText">Face ID / Quick unlock</span></button>
-      <p class="lock-note" id="pinHint">First launch: create a 4 digit PIN.</p>
+      <button class="face-btn" onclick="quickUnlock()">🔐 <span data-i18n="quickUnlock">Face ID / Quick unlock</span></button>
+      <p class="lock-note" data-i18n="pinNote">First launch: create a 4 digit PIN.</p>
     </div>
   </div>
 
@@ -70,17 +70,12 @@
         <div class="muted" data-i18n="nextPaymentNote">Эту сумму получишь на следующей выплате</div>
       </div>
 
-      <div class="card today-card">
+      <div class="card">
         <div class="section-head">
           <h2>🍓 <span data-i18n="today">Сегодня</span></h2>
           <button class="tiny" onclick="calculatePreview()" data-i18n="refresh">Обновить</button>
         </div>
-        <div class="result" id="todayHarvestCard">
-          <div class="mini"><span data-i18n="standard">Стандарт</span><b>0</b></div>
-          <div class="mini"><span data-i18n="rubbish">Рабиш</span><b>0</b></div>
-          <div class="mini"><span data-i18n="totalKg">Всего кг</span><b>0 кг</b></div>
-          <div class="mini premiumMini"><span data-i18n="today">Сегодня</span><b>£0.00</b></div>
-        </div>
+        <div class="result" id="todayHarvestCard"></div>
       </div>
 
       <div class="card">
@@ -170,7 +165,7 @@
       <div class="card center">
         <div class="logo centerLogo">B</div>
         <h2>BerryPay Pro</h2>
-        <div class="muted">Designed &amp; Created by <b>Azizbay 🍓</b><br>Made for Farm Workers</div>
+        <div class="muted">Version 8.2<br>Designed &amp; Created by <b>Azizbay 🍓</b><br>Made for Farm Workers</div>
       </div>
       <div class="card"><h2 data-i18n="records">Рекорды</h2><div id="recordsBox" class="result"></div></div>
       <div class="card"><h2 data-i18n="myFarm">Моя ферма</h2><div id="farmBox"></div></div>
@@ -190,7 +185,7 @@
         <label data-i18n="weeklyGoalKg">Цель недели кг</label><input id="goalKg" type="number" value="400" step="1" />
         <label data-i18n="farmName">Название фермы</label><input id="farmName" type="text" value="East Seaton Farm" />
         <button class="primary" onclick="saveSettings()" data-i18n="saveSettings">Сохранить настройки</button>
-        <button class="secondary" onclick="changePin()" data-i18n="changePin">Изменить PIN</button>
+        <button class="secondary" onclick="resetPin()" data-i18n="changePin">Изменить PIN</button>
         <button class="secondary" onclick="exportCSV()" data-i18n="downloadCsv">Скачать CSV</button>
         <button class="danger" onclick="clearAll()" data-i18n="clearAll">Очистить все записи</button>
       </div>

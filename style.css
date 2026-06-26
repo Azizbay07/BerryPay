@@ -1,5 +1,5 @@
-/* BerryPay 8.2 Premium banking style */
-:root{--bg:#050b16;--panel:rgba(15,23,42,.72);--line:rgba(255,255,255,.12);--muted:#93a4ba;--text:#f8fafc;--pink:#fb3264;--orange:#ff7438;--blue:#3b82f6;--purple:#7c3aed;--green:#22c55e}
+/* BerryPay 8.2 Pro */
+:root{--bg:#050b16;--panel:rgba(15,23,42,.74);--line:rgba(255,255,255,.12);--muted:#94a3b8;--text:#f8fafc;--pink:#fb3264;--orange:#ff7438;--blue:#3b82f6;--purple:#7c3aed;--green:#22c55e}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Arial,sans-serif;background:radial-gradient(circle at 10% -5%,rgba(251,50,100,.32),transparent 34%),radial-gradient(circle at 100% 0%,rgba(124,58,237,.28),transparent 36%),radial-gradient(circle at 50% 115%,rgba(14,165,233,.16),transparent 36%),var(--bg);color:var(--text);padding:16px;padding-bottom:118px;min-height:100vh}
 .splash{position:fixed;inset:0;z-index:999;background:radial-gradient(circle at top,rgba(251,50,100,.25),transparent 42%),#050b16;display:flex;align-items:center;justify-content:center;flex-direction:column;animation:splashOut .65s ease 1.25s forwards}
