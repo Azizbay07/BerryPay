@@ -1,449 +1,140 @@
-// BerryPay 8.0 — separated logic
+// BerryPay 8.2 Premium
 const STORAGE_DAYS = "berrypay_v8_days";
 const STORAGE_SETTINGS = "berrypay_v8_settings";
+const STORAGE_LANG = "berrypay_v82_lang";
+const STORAGE_PIN = "berrypay_v82_pin";
 
-function toast(message) {
-  const el = document.getElementById("toast");
-  el.textContent = message;
-  el.classList.add("show");
-  setTimeout(() => el.classList.remove("show"), 1800);
-}
-
-function defaultSettings() {
-  return {
-    rate: 12.71,
-    otRate: 19.07,
-    normKg: 48,
-    bonusKg: 0.75,
-    standardKg: 1.5,
-    rubbishKg: 4,
-    goalMoney: 1000,
-    goalKg: 400,
-    farmName: "East Seaton Farm"
-  };
-}
-
-function getSettings() {
-  return JSON.parse(localStorage.getItem(STORAGE_SETTINGS)) || defaultSettings();
-}
-
-function setSettings(settings) {
-  localStorage.setItem(STORAGE_SETTINGS, JSON.stringify(settings));
-}
-
-function getDays() {
-  return JSON.parse(localStorage.getItem(STORAGE_DAYS)) || [];
-}
-
-function setDays(days) {
-  localStorage.setItem(STORAGE_DAYS, JSON.stringify(days));
-}
-
-function money(n) {
-  return "£" + (Math.round((n || 0) * 100) / 100).toFixed(2);
-}
-
-function hoursText(hours) {
-  const m = Math.round((hours || 0) * 60);
-  return Math.floor(m / 60) + " ч " + (m % 60) + " мин";
-}
-
-function parseTime(value) {
-  const [h, m] = value.split(":").map(Number);
-  return h * 60 + m;
-}
-
-function nowTime() {
-  const d = new Date();
-  return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
-}
-
-function iso(date) {
-  return date.toISOString().slice(0, 10);
-}
-
-function weekStartFriday(dateObj) {
-  const d = new Date(dateObj);
-  const day = d.getDay();
-  const diff = day >= 5 ? day - 5 : day + 2;
-  d.setDate(d.getDate() - diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function weekByOffset(offset) {
-  const base = new Date(document.getElementById("date").value || new Date());
-  const start = weekStartFriday(base);
-  start.setDate(start.getDate() + offset * 7);
-  const end = new Date(start);
-  end.setDate(start.getDate() + 6);
-  const days = getDays().filter(d => d.date >= iso(start) && d.date <= iso(end));
-  return { days, startW: start, endW: end };
-}
-
-function payFridayForWeek(week) {
-  const p = new Date(week.endW);
-  p.setDate(week.endW.getDate() + 8);
-  return p;
-}
-
-function setStartNow() {
-  document.getElementById("start").value = nowTime();
-  if (navigator.vibrate) navigator.vibrate(25);
-  toast("Начало смены записано");
-}
-
-function setEndNow() {
-  document.getElementById("end").value = nowTime();
-  if (navigator.vibrate) navigator.vibrate(25);
-  toast("Конец смены записан");
-}
-
-function updateKgFromHarvest() {
-  const s = getSettings();
-  const standard = +(document.getElementById("standardBoxes").value || 0);
-  const rubbish = +(document.getElementById("rubbishBoxes").value || 0);
-  document.getElementById("kg").value = (standard * s.standardKg + rubbish * s.rubbishKg).toFixed(2);
-}
-
-function calcDay(date, start, end, kgValue) {
-  const s = getSettings();
-  let startMin = parseTime(start);
-  let endMin = parseTime(end);
-  if (endMin < startMin) endMin += 1440;
-
-  let breakMin = 0;
-  if (startMin < 480 && endMin > 480) breakMin += 15;
-  if (startMin < 660 && endMin > 660) breakMin += 30;
-
-  const workHours = Math.max((endMin - startMin - breakMin) / 60, 0);
-  const normalHours = Math.min(workHours, 8);
-  const overtimeHours = Math.max(workHours - 8, 0);
-  const hourlyPay = normalHours * s.rate + overtimeHours * s.otRate;
-
-  const kg = +(kgValue || 0);
-  const extraKg = Math.max(kg - s.normKg, 0);
-  const bonusPay = extraKg * s.bonusKg;
-
-  return {
-    date,
-    start,
-    end,
-    standardBoxes: +(document.getElementById("standardBoxes").value || 0),
-    rubbishBoxes: +(document.getElementById("rubbishBoxes").value || 0),
-    kg,
-    note: document.getElementById("note").value || "",
-    breakMin,
-    workHours,
-    normalHours,
-    overtimeHours,
-    hourlyPay,
-    extraKg,
-    bonusPay,
-    total: hourlyPay + bonusPay
-  };
-}
-
-function resultHTML(r) {
-  return `
-    <div class="mini"><span>Рабочее время</span><b>${hoursText(r.workHours)}</b></div>
-    <div class="mini"><span>Овертайм</span><b>${hoursText(r.overtimeHours)}</b></div>
-    <div class="mini"><span>ЗП за часы</span><b>${money(r.hourlyPay)}</b></div>
-    <div class="mini"><span>Бонус</span><b>${money(r.bonusPay)}</b></div>
-    <div class="mini"><span>Стандарт</span><b>${r.standardBoxes || 0}</b></div>
-    <div class="mini"><span>Рабиш</span><b>${r.rubbishBoxes || 0}</b></div>
-    <div class="mini"><span>Сверх нормы</span><b>${r.extraKg} кг</b></div>
-    <div class="mini premiumMini"><span>Итого</span><b>${money(r.total)}</b></div>
-  `;
-}
-
-function updateTodayHarvestCard(r) {
-  const el = document.getElementById("todayHarvestCard");
-  if (!el || !r) return;
-  el.innerHTML = `
-    <div class="mini"><span>Стандарт</span><b>${r.standardBoxes || 0}</b></div>
-    <div class="mini"><span>Рабиш</span><b>${r.rubbishBoxes || 0}</b></div>
-    <div class="mini"><span>Всего кг</span><b>${r.kg} кг</b></div>
-    <div class="mini premiumMini"><span>Сегодня</span><b>${money(r.total)}</b></div>
-  `;
-}
-
-function calculatePreview() {
-  const r = calcDay(
-    document.getElementById("date").value,
-    document.getElementById("start").value,
-    document.getElementById("end").value,
-    document.getElementById("kg").value
-  );
-  document.getElementById("preview").innerHTML = resultHTML(r);
-  updateTodayHarvestCard(r);
-  return r;
-}
-
-function saveDay() {
-  const r = calculatePreview();
-  if (!r.date || !r.start || !r.end) {
-    toast("Заполни дату и время");
-    return;
+const I18N = {
+  ru: {
+    tagline:"Premium farm pay tracker", pendingPay:"Ожидает выплаты", currentWeek:"Текущая неделя", nextPaymentNote:"Эту сумму получишь на следующей выплате",
+    today:"Сегодня", standard:"Стандарт", rubbish:"Рабиш", totalKg:"Всего кг", refresh:"Обновить", quickActions:"Быстрые действия",
+    start:"Начать", finish:"Закончить", date:"Дата", startTime:"Начало", endTime:"Конец", kilograms:"Килограммы", note:"Заметка",
+    calculate:"Рассчитать", saveDay:"Сохранить день", goals:"Цели текущей недели", moneyGoal:"Money goal", kgGoal:"Kg goal",
+    moneyProgress:"Money progress", kgProgress:"Kg progress", goalPounds:"Цель £", goalKgInput:"Цель кг", saveGoals:"Сохранить цели",
+    nearestPayment:"Ближайшая выплата", weekCalendar:"Календарь недели", dailyIncome:"Доход по дням", weekDays:"Дни недели",
+    weekHistory:"История недель", statistics:"Статистика", kgByDays:"Кг по дням", checkPayment:"Проверить ближайшую выплату",
+    amountReceived:"Сколько пришло на карту?", check:"Проверить", records:"Рекорды", myFarm:"Моя ферма", about:"О приложении",
+    aboutText:"BerryPay создан для работников ягодных ферм Великобритании. Идея проекта — Azizbay.", settings:"Настройки",
+    normalRate:"Обычная ставка £/час", overtimeRate:"Овертайм £/час", normKg:"Норма кг", bonusKg:"Бонус за кг £",
+    standardWeight:"Вес стандарта, кг", rubbishWeight:"Вес рабиш-ящика, кг", weeklyGoalPounds:"Цель недели £", weeklyGoalKg:"Цель недели кг",
+    farmName:"Название фермы", saveSettings:"Сохранить настройки", changePin:"Изменить PIN", downloadCsv:"Скачать CSV", clearAll:"Очистить все записи",
+    navHome:"Главная", navWeek:"Неделя", navHistory:"История", navStats:"Стат.", navProfile:"Профиль", navSettings:"Настройки",
+    payday:"Выплата: пятница, ", noDays:"Пока нет сохранённых дней.", noHistory:"История пока пустая.",
+    savedStart:"Начало смены записано", savedEnd:"Конец смены записан", savedDay:"Смена сохранена ✅", fillDate:"Заполни дату и время",
+    settingsSaved:"Настройки сохранены", goalsSaved:"Цели сохранены", deleted:"Все записи удалены", pinChanged:"PIN сброшен. Создай новый PIN.",
+    good:"✅ Всё нормально", missing:"⚠️ Не хватает", over:"Больше/ровно на ", diff:"Разница: ", workTime:"Рабочее время",
+    overtime:"Овертайм", hourlyPay:"ЗП за часы", bonus:"Бонус", extraKg:"Сверх нормы", total:"Итого", days:"Дней",
+    totalHours:"Всего часов", totalStandard:"Всего стандарт", totalRubbish:"Всего рабиш", avgKg:"Среднее кг", recordKg:"Рекорд кг",
+    bestDay:"Лучший день", season:"Сезон", farm:"Ферма", rate:"Ставка", delay:"Задержка выплаты", oneWeek:"1 неделя",
+    enterPin:"Введи PIN", createPin:"Создай PIN из 4 цифр", wrongPin:"Неверный PIN", face:"Face ID / Быстрый вход"
+  },
+  en: {
+    tagline:"Premium farm pay tracker", pendingPay:"Pending payment", currentWeek:"Current week", nextPaymentNote:"You will receive this amount on the next payday",
+    today:"Today", standard:"Standard", rubbish:"Rubbish", totalKg:"Total kg", refresh:"Refresh", quickActions:"Quick actions",
+    start:"Start", finish:"Finish", date:"Date", startTime:"Start", endTime:"End", kilograms:"Kilograms", note:"Note",
+    calculate:"Calculate", saveDay:"Save day", goals:"Current week goals", moneyGoal:"Money goal", kgGoal:"Kg goal",
+    moneyProgress:"Money progress", kgProgress:"Kg progress", goalPounds:"Goal £", goalKgInput:"Goal kg", saveGoals:"Save goals",
+    nearestPayment:"Nearest payment", weekCalendar:"Week calendar", dailyIncome:"Daily income", weekDays:"Week days",
+    weekHistory:"Week history", statistics:"Statistics", kgByDays:"Kg by days", checkPayment:"Check nearest payment",
+    amountReceived:"How much arrived on the card?", check:"Check", records:"Records", myFarm:"My farm", about:"About app",
+    aboutText:"BerryPay was created for berry farm workers in the UK. Project idea — Azizbay.", settings:"Settings",
+    normalRate:"Normal rate £/hour", overtimeRate:"Overtime £/hour", normKg:"Norm kg", bonusKg:"Bonus per kg £",
+    standardWeight:"Standard weight, kg", rubbishWeight:"Rubbish box weight, kg", weeklyGoalPounds:"Weekly goal £", weeklyGoalKg:"Weekly goal kg",
+    farmName:"Farm name", saveSettings:"Save settings", changePin:"Change PIN", downloadCsv:"Download CSV", clearAll:"Clear all records",
+    navHome:"Home", navWeek:"Week", navHistory:"History", navStats:"Stats", navProfile:"Profile", navSettings:"Settings",
+    payday:"Payday: Friday, ", noDays:"No saved days yet.", noHistory:"History is empty.",
+    savedStart:"Shift start saved", savedEnd:"Shift end saved", savedDay:"Shift saved ✅", fillDate:"Fill date and time",
+    settingsSaved:"Settings saved", goalsSaved:"Goals saved", deleted:"All records deleted", pinChanged:"PIN reset. Create a new PIN.",
+    good:"✅ Looks correct", missing:"⚠️ Missing", over:"More/equal by ", diff:"Difference: ", workTime:"Work time",
+    overtime:"Overtime", hourlyPay:"Hourly pay", bonus:"Bonus", extraKg:"Extra kg", total:"Total", days:"Days",
+    totalHours:"Total hours", totalStandard:"Total standard", totalRubbish:"Total rubbish", avgKg:"Average kg", recordKg:"Record kg",
+    bestDay:"Best day", season:"Season", farm:"Farm", rate:"Rate", delay:"Payment delay", oneWeek:"1 week",
+    enterPin:"Enter PIN", createPin:"Create a 4 digit PIN", wrongPin:"Wrong PIN", face:"Face ID / Quick unlock"
+  },
+  kg: {
+    tagline:"Ферма үчүн премиум айлык трекер", pendingPay:"Төлөм күтүлүүдө", currentWeek:"Учурдагы апта", nextPaymentNote:"Бул сумманы кийинки төлөмдө аласың",
+    today:"Бүгүн", standard:"Стандарт", rubbish:"Рабиш", totalKg:"Жалпы кг", refresh:"Жаңыртуу", quickActions:"Тез аракеттер",
+    start:"Баштоо", finish:"Бүтүрүү", date:"Дата", startTime:"Башталышы", endTime:"Аягы", kilograms:"Килограмм", note:"Эскертүү",
+    calculate:"Эсептөө", saveDay:"Күндү сактоо", goals:"Учурдагы аптанын максаттары", moneyGoal:"Акча максаты", kgGoal:"Кг максаты",
+    moneyProgress:"Акча прогресси", kgProgress:"Кг прогресси", goalPounds:"Максат £", goalKgInput:"Максат кг", saveGoals:"Максаттарды сактоо",
+    nearestPayment:"Жакынкы төлөм", weekCalendar:"Апта календары", dailyIncome:"Күндүк киреше", weekDays:"Аптанын күндөрү",
+    weekHistory:"Апталар тарыхы", statistics:"Статистика", kgByDays:"Күндөр боюнча кг", checkPayment:"Жакынкы төлөмдү текшерүү",
+    amountReceived:"Картага канча түштү?", check:"Текшерүү", records:"Рекорддор", myFarm:"Менин фермам", about:"Тиркеме жөнүндө",
+    aboutText:"BerryPay Улуу Британиядагы мөмө-жемиш фермаларынын жумушчулары үчүн түзүлгөн. Идея — Azizbay.", settings:"Жөндөөлөр",
+    normalRate:"Кадимки ставка £/саат", overtimeRate:"Овертайм £/саат", normKg:"Норма кг", bonusKg:"1 кг бонус £",
+    standardWeight:"Стандарт салмагы, кг", rubbishWeight:"Рабиш ящик салмагы, кг", weeklyGoalPounds:"Апталык максат £", weeklyGoalKg:"Апталык максат кг",
+    farmName:"Ферманын аты", saveSettings:"Жөндөөлөрдү сактоо", changePin:"PIN өзгөртүү", downloadCsv:"CSV жүктөө", clearAll:"Бардык жазууларды өчүрүү",
+    navHome:"Башкы", navWeek:"Апта", navHistory:"Тарых", navStats:"Стат.", navProfile:"Профиль", navSettings:"Жөндөө",
+    payday:"Төлөм: жума, ", noDays:"Азырынча сакталган күн жок.", noHistory:"Тарых бош.",
+    savedStart:"Смена башталышы сакталды", savedEnd:"Смена аягы сакталды", savedDay:"Смена сакталды ✅", fillDate:"Дата жана убакытты толтур",
+    settingsSaved:"Жөндөөлөр сакталды", goalsSaved:"Максаттар сакталды", deleted:"Бардык жазуулар өчүрүлдү", pinChanged:"PIN өчүрүлдү. Жаңы PIN түз.",
+    good:"✅ Баары туура", missing:"⚠️ Жетпейт", over:"Көп/тең: ", diff:"Айырма: ", workTime:"Жумуш убактысы",
+    overtime:"Овертайм", hourlyPay:"Сааттык төлөм", bonus:"Бонус", extraKg:"Нормадан ашык", total:"Жалпы", days:"Күндөр",
+    totalHours:"Жалпы саат", totalStandard:"Жалпы стандарт", totalRubbish:"Жалпы рабиш", avgKg:"Орточо кг", recordKg:"Рекорд кг",
+    bestDay:"Эң жакшы күн", season:"Сезон", farm:"Ферма", rate:"Ставка", delay:"Төлөм кечигүүсү", oneWeek:"1 апта",
+    enterPin:"PIN киргиз", createPin:"4 сандык PIN түз", wrongPin:"PIN туура эмес", face:"Face ID / Тез кирүү"
   }
-  const days = getDays().filter(d => d.date !== r.date);
-  days.push(r);
-  days.sort((a, b) => a.date.localeCompare(b.date));
-  setDays(days);
-  toast("Смена сохранена ✅");
-  refreshAll();
+};
+
+function lang(){return localStorage.getItem(STORAGE_LANG)||"ru"}
+function tr(k){return (I18N[lang()]&&I18N[lang()][k])||I18N.ru[k]||k}
+function applyLang(){
+  document.documentElement.lang = lang()==="kg" ? "ky" : lang();
+  document.getElementById("langBtn").textContent = lang().toUpperCase();
+  document.querySelectorAll("[data-i18n]").forEach(el=>{el.textContent=tr(el.dataset.i18n)});
+  const face = document.getElementById("faceText"); if(face) face.textContent = tr("face");
+  updateLockText();
 }
+function toggleLang(){const a=["ru","en","kg"];localStorage.setItem(STORAGE_LANG,a[(a.indexOf(lang())+1)%a.length]);applyLang();refreshAll()}
 
-function loadSettings() {
-  const s = getSettings();
-  for (const key of ["rate", "otRate", "normKg", "bonusKg", "standardKg", "rubbishKg", "goalMoney", "goalKg", "farmName"]) {
-    const el = document.getElementById(key);
-    if (el) el.value = s[key];
-  }
-  document.getElementById("quickGoalMoney").value = s.goalMoney;
-  document.getElementById("quickGoalKg").value = s.goalKg;
-}
+function toast(m){const el=document.getElementById("toast");el.textContent=m;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),1800)}
+function defaultSettings(){return{rate:12.71,otRate:19.07,normKg:48,bonusKg:.75,standardKg:1.5,rubbishKg:4,goalMoney:1000,goalKg:400,farmName:"East Seaton Farm"}}
+function getSettings(){return JSON.parse(localStorage.getItem(STORAGE_SETTINGS))||defaultSettings()}
+function setSettings(s){localStorage.setItem(STORAGE_SETTINGS,JSON.stringify(s))}
+function getDays(){return JSON.parse(localStorage.getItem(STORAGE_DAYS))||[]}
+function setDays(d){localStorage.setItem(STORAGE_DAYS,JSON.stringify(d))}
+function money(n){return "£"+(Math.round((n||0)*100)/100).toFixed(2)}
+function hoursText(h){const m=Math.round((h||0)*60);return Math.floor(m/60)+" ч "+(m%60)+" мин"}
+function parseTime(v){const [h,m]=v.split(":").map(Number);return h*60+m}
+function nowTime(){const d=new Date();return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
+function iso(d){return d.toISOString().slice(0,10)}
+function weekStartFriday(o){const d=new Date(o),day=d.getDay(),diff=day>=5?day-5:day+2;d.setDate(d.getDate()-diff);d.setHours(0,0,0,0);return d}
+function weekByOffset(offset){const base=new Date(document.getElementById("date").value||new Date()),start=weekStartFriday(base);start.setDate(start.getDate()+offset*7);const end=new Date(start);end.setDate(start.getDate()+6);const days=getDays().filter(d=>d.date>=iso(start)&&d.date<=iso(end));return{days,startW:start,endW:end}}
+function payFridayForWeek(w){const p=new Date(w.endW);p.setDate(w.endW.getDate()+8);return p}
 
-function saveSettings() {
-  const settings = {
-    rate: +document.getElementById("rate").value || 12.71,
-    otRate: +document.getElementById("otRate").value || 19.07,
-    normKg: +document.getElementById("normKg").value || 48,
-    bonusKg: +document.getElementById("bonusKg").value || 0.75,
-    standardKg: +document.getElementById("standardKg").value || 1.5,
-    rubbishKg: +document.getElementById("rubbishKg").value || 4,
-    goalMoney: +document.getElementById("goalMoney").value || 1000,
-    goalKg: +document.getElementById("goalKg").value || 400,
-    farmName: document.getElementById("farmName").value || "Farm"
-  };
-  setSettings(settings);
-  document.getElementById("quickGoalMoney").value = settings.goalMoney;
-  document.getElementById("quickGoalKg").value = settings.goalKg;
-  toast("Настройки сохранены");
-  refreshAll();
-}
+let pinBuffer="";
+function updateLockText(){const has=localStorage.getItem(STORAGE_PIN);const sub=document.getElementById("lockSubtitle");const hint=document.getElementById("pinHint");if(sub)sub.textContent=has?tr("enterPin"):tr("createPin");if(hint)hint.textContent=has?tr("face"):"First launch: create a 4 digit PIN.";updateDots()}
+function updateDots(){document.querySelectorAll("#pinDots span").forEach((s,i)=>s.classList.toggle("on",i<pinBuffer.length))}
+function showLock(){document.getElementById("lockScreen").classList.add("show");updateLockText()}
+function hideLock(){document.getElementById("lockScreen").classList.remove("show")}
+function pinPress(n){pinBuffer+=n;if(pinBuffer.length>4)pinBuffer=pinBuffer.slice(0,4);updateDots();if(pinBuffer.length===4){const saved=localStorage.getItem(STORAGE_PIN);if(!saved){localStorage.setItem(STORAGE_PIN,pinBuffer);pinBuffer="";hideLock();toast("PIN saved")}else if(saved===pinBuffer){pinBuffer="";hideLock()}else{pinBuffer="";toast(tr("wrongPin"));updateDots()}}}
+function pinBack(){pinBuffer=pinBuffer.slice(0,-1);updateDots()}
+function resetPinSetup(){localStorage.removeItem(STORAGE_PIN);pinBuffer="";updateLockText();toast(tr("pinChanged"))}
+function changePin(){resetPinSetup();showLock()}
+function faceUnlock(){toast(tr("face")); hideLock()}
 
-function saveQuickGoals() {
-  const s = getSettings();
-  s.goalMoney = +document.getElementById("quickGoalMoney").value || 1000;
-  s.goalKg = +document.getElementById("quickGoalKg").value || 400;
-  setSettings(s);
-  document.getElementById("goalMoney").value = s.goalMoney;
-  document.getElementById("goalKg").value = s.goalKg;
-  toast("Цели сохранены");
-  refreshAll();
-}
+function setStartNow(){document.getElementById("start").value=nowTime();navigator.vibrate&&navigator.vibrate(25);toast(tr("savedStart"))}
+function setEndNow(){document.getElementById("end").value=nowTime();navigator.vibrate&&navigator.vibrate(25);toast(tr("savedEnd"))}
+function updateKgFromHarvest(){const s=getSettings();const st=+(document.getElementById("standardBoxes").value||0);const rb=+(document.getElementById("rubbishBoxes").value||0);document.getElementById("kg").value=(st*s.standardKg+rb*s.rubbishKg).toFixed(2)}
+function calcDay(date,start,end,kgValue){const s=getSettings();let sm=parseTime(start),em=parseTime(end);if(em<sm)em+=1440;let breakMin=0;if(sm<480&&em>480)breakMin+=15;if(sm<660&&em>660)breakMin+=30;const workHours=Math.max((em-sm-breakMin)/60,0),normalHours=Math.min(workHours,8),overtimeHours=Math.max(workHours-8,0),hourlyPay=normalHours*s.rate+overtimeHours*s.otRate;const kg=+(kgValue||0),extraKg=Math.max(kg-s.normKg,0),bonusPay=extraKg*s.bonusKg;return{date,start,end,standardBoxes:+(document.getElementById("standardBoxes").value||0),rubbishBoxes:+(document.getElementById("rubbishBoxes").value||0),kg,note:document.getElementById("note").value||"",breakMin,workHours,normalHours,overtimeHours,hourlyPay,extraKg,bonusPay,total:hourlyPay+bonusPay}}
+function resultHTML(r){return`<div class="mini"><span>${tr("workTime")}</span><b>${hoursText(r.workHours)}</b></div><div class="mini"><span>${tr("overtime")}</span><b>${hoursText(r.overtimeHours)}</b></div><div class="mini"><span>${tr("hourlyPay")}</span><b>${money(r.hourlyPay)}</b></div><div class="mini"><span>${tr("bonus")}</span><b>${money(r.bonusPay)}</b></div><div class="mini"><span>${tr("standard")}</span><b>${r.standardBoxes||0}</b></div><div class="mini"><span>${tr("rubbish")}</span><b>${r.rubbishBoxes||0}</b></div><div class="mini"><span>${tr("extraKg")}</span><b>${r.extraKg} кг</b></div><div class="mini premiumMini"><span>${tr("total")}</span><b>${money(r.total)}</b></div>`}
+function updateTodayHarvestCard(r){const el=document.getElementById("todayHarvestCard");if(!el||!r)return;el.innerHTML=`<div class="mini"><span>${tr("standard")}</span><b>${r.standardBoxes||0}</b></div><div class="mini"><span>${tr("rubbish")}</span><b>${r.rubbishBoxes||0}</b></div><div class="mini"><span>${tr("totalKg")}</span><b>${r.kg} кг</b></div><div class="mini premiumMini"><span>${tr("today")}</span><b>${money(r.total)}</b></div>`}
+function calculatePreview(){const r=calcDay(date.value,start.value,end.value,kg.value);preview.innerHTML=resultHTML(r);updateTodayHarvestCard(r);return r}
+function saveDay(){const r=calculatePreview();if(!r.date||!r.start||!r.end){toast(tr("fillDate"));return}const days=getDays().filter(d=>d.date!==r.date);days.push(r);days.sort((a,b)=>a.date.localeCompare(b.date));setDays(days);toast(tr("savedDay"));refreshAll()}
 
-function renderWeek() {
-  const current = weekByOffset(0);
-  const previous = weekByOffset(-1);
-  const s = getSettings();
+function loadSettings(){const s=getSettings();["rate","otRate","normKg","bonusKg","standardKg","rubbishKg","goalMoney","goalKg","farmName"].forEach(k=>{const el=document.getElementById(k);if(el)el.value=s[k]});quickGoalMoney.value=s.goalMoney;quickGoalKg.value=s.goalKg}
+function saveSettings(){const s={rate:+rate.value||12.71,otRate:+otRate.value||19.07,normKg:+normKg.value||48,bonusKg:+bonusKg.value||.75,standardKg:+standardKg.value||1.5,rubbishKg:+rubbishKg.value||4,goalMoney:+goalMoney.value||1000,goalKg:+goalKg.value||400,farmName:farmName.value||"Farm"};setSettings(s);quickGoalMoney.value=s.goalMoney;quickGoalKg.value=s.goalKg;toast(tr("settingsSaved"));refreshAll()}
+function saveQuickGoals(){const s=getSettings();s.goalMoney=+quickGoalMoney.value||1000;s.goalKg=+quickGoalKg.value||400;setSettings(s);goalMoney.value=s.goalMoney;goalKg.value=s.goalKg;toast(tr("goalsSaved"));refreshAll()}
 
-  const currentTotal = current.days.reduce((a, d) => a + d.total, 0);
-  const currentKg = current.days.reduce((a, d) => a + d.kg, 0);
-  const previousTotal = previous.days.reduce((a, d) => a + d.total, 0);
-
-  document.getElementById("homeWeekTotal").textContent = money(currentTotal);
-  document.getElementById("weekTotal").textContent = money(currentTotal);
-  document.getElementById("homeWeekRange").textContent = `${iso(current.startW)} → ${iso(current.endW)}`;
-  document.getElementById("weekRange").textContent = `${iso(current.startW)} → ${iso(current.endW)}`;
-
-  document.getElementById("pendingPay").textContent = money(previousTotal);
-  document.getElementById("pendingPay2").textContent = money(previousTotal);
-  document.getElementById("pendingRange").textContent = `${iso(previous.startW)} → ${iso(previous.endW)}`;
-  document.getElementById("pendingRange2").textContent = `${iso(previous.startW)} → ${iso(previous.endW)}`;
-
-  const payDate = "Выплата: пятница, " + iso(payFridayForWeek(previous));
-  document.getElementById("pendingDate").textContent = payDate;
-  document.getElementById("pendingDate2").textContent = payDate;
-
-  document.getElementById("goalMoneyText").textContent = money(s.goalMoney);
-  document.getElementById("goalKgText").textContent = s.goalKg + " кг";
-  document.getElementById("moneyBar").style.width = Math.min((currentTotal / s.goalMoney) * 100, 100) + "%";
-  document.getElementById("kgBar").style.width = Math.min((currentKg / s.goalKg) * 100, 100) + "%";
-
-  document.getElementById("weekList").innerHTML = current.days.length
-    ? current.days.map(d => `
-      <div class="row">
-        <div><b>${d.date}</b><div class="mutedDark">${d.start}–${d.end}, ${d.standardBoxes ? d.standardBoxes + " ст · " : ""}${d.rubbishBoxes ? d.rubbishBoxes + " раб · " : ""}${d.kg} кг ${d.note ? "· " + d.note : ""}</div></div>
-        <div><b>${money(d.total)}</b><div class="mutedDark">${hoursText(d.workHours)}</div></div>
-      </div>
-    `).join("")
-    : '<div class="mutedDark">Пока нет сохранённых дней.</div>';
-
-  renderCalendar(current);
-  renderCharts(current);
-  renderHistory();
-}
-
-function renderCalendar(week) {
-  let html = "";
-  const start = new Date(week.startW);
-  const worked = new Set(week.days.map(d => d.date));
-  const today = iso(new Date());
-
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(start);
-    d.setDate(start.getDate() + i);
-    const id = iso(d);
-    html += `<div class="day ${worked.has(id) ? "worked" : ""} ${id === today ? "todayDay" : ""}">${id.slice(8)}</div>`;
-  }
-  document.getElementById("calendar").innerHTML = html;
-}
-
-function renderCharts(week) {
-  const maxPay = Math.max(1, ...week.days.map(d => d.total));
-  const payDays = week.days.length ? week.days : [0,0,0,0,0,0,0];
-  document.getElementById("earnChart").innerHTML = payDays.map(d => {
-    const h = d.total ? Math.max(8, (d.total / maxPay) * 130) : 8;
-    return `<div class="col" style="height:${h}px"></div>`;
-  }).join("");
-
-  const all = getDays();
-  const maxKg = Math.max(1, ...all.map(d => d.kg || 0));
-  const kgDays = all.slice(-7).length ? all.slice(-7) : [0,0,0,0,0,0,0];
-  document.getElementById("kgChart").innerHTML = kgDays.map(d => {
-    const h = d.kg ? Math.max(8, (d.kg / maxKg) * 130) : 8;
-    return `<div class="col" style="height:${h}px"></div>`;
-  }).join("");
-}
-
-function renderHistory() {
-  const days = getDays();
-  const map = {};
-  days.forEach(day => {
-    const w = weekStartFriday(new Date(day.date));
-    const key = iso(w);
-    if (!map[key]) {
-      const end = new Date(w);
-      end.setDate(w.getDate() + 6);
-      map[key] = { start: w, end, total: 0, kg: 0, hours: 0, days: 0, standard: 0, rubbish: 0 };
-    }
-    map[key].total += day.total;
-    map[key].kg += day.kg;
-    map[key].hours += day.workHours;
-    map[key].days += 1;
-    map[key].standard += day.standardBoxes || 0;
-    map[key].rubbish += day.rubbishBoxes || 0;
-  });
-
-  const rows = Object.values(map).sort((a, b) => b.start - a.start);
-  document.getElementById("historyList").innerHTML = rows.length
-    ? rows.map(r => `
-      <div class="row">
-        <div><b>${iso(r.start)} → ${iso(r.end)}</b><div class="mutedDark">${r.days} дн · ${r.standard} ст · ${r.rubbish} раб · ${r.kg.toFixed(1)} кг · ${hoursText(r.hours)}</div></div>
-        <div><b>${money(r.total)}</b><div class="mutedDark">выплата ${iso(payFridayForWeek(r))}</div></div>
-      </div>
-    `).join("")
-    : '<div class="mutedDark">История пока пустая.</div>';
-}
-
-function renderStats() {
-  const days = getDays();
-  const sum = key => days.reduce((a, d) => a + (d[key] || 0), 0);
-  const maxKg = days.length ? Math.max(...days.map(d => d.kg || 0)) : 0;
-  const maxPay = days.length ? Math.max(...days.map(d => d.total || 0)) : 0;
-  const avgKg = days.length ? sum("kg") / days.length : 0;
-
-  document.getElementById("statsBox").innerHTML = `
-    <div class="mini"><span>Дней</span><b>${days.length}</b></div>
-    <div class="mini"><span>Всего часов</span><b>${hoursText(sum("workHours"))}</b></div>
-    <div class="mini"><span>Овертайм</span><b>${hoursText(sum("overtimeHours"))}</b></div>
-    <div class="mini"><span>Всего кг</span><b>${sum("kg").toFixed(1)}</b></div>
-    <div class="mini"><span>Всего стандарт</span><b>${sum("standardBoxes").toFixed(1)}</b></div>
-    <div class="mini"><span>Всего рабиш</span><b>${sum("rubbishBoxes").toFixed(1)}</b></div>
-    <div class="mini"><span>Среднее кг</span><b>${avgKg.toFixed(1)}</b></div>
-    <div class="mini"><span>Рекорд кг</span><b>${maxKg.toFixed(1)}</b></div>
-    <div class="mini"><span>Лучший день</span><b>${money(maxPay)}</b></div>
-    <div class="mini premiumMini"><span>Всего</span><b>${money(sum("total"))}</b></div>
-  `;
-
-  document.getElementById("recordsBox").innerHTML = `
-    <div class="mini"><span>Лучший кг</span><b>${maxKg.toFixed(1)}</b></div>
-    <div class="mini"><span>Лучший доход</span><b>${money(maxPay)}</b></div>
-    <div class="mini"><span>Дней</span><b>${days.length}</b></div>
-    <div class="mini premiumMini"><span>Сезон</span><b>${money(sum("total"))}</b></div>
-  `;
-
-  const s = getSettings();
-  document.getElementById("farmBox").innerHTML = `
-    <div class="row"><span>📍 Ферма</span><b>${s.farmName}</b></div>
-    <div class="row"><span>Ставка</span><b>${money(s.rate)}/ч</b></div>
-    <div class="row"><span>Овертайм</span><b>${money(s.otRate)}/ч</b></div>
-    <div class="row"><span>Норма</span><b>${s.normKg} кг</b></div>
-    <div class="row"><span>Бонус</span><b>${money(s.bonusKg)}/кг</b></div>
-    <div class="row"><span>Вес стандарта</span><b>${s.standardKg} кг</b></div>
-    <div class="row"><span>Вес рабиш</span><b>${s.rubbishKg} кг</b></div>
-    <div class="row"><span>Задержка выплаты</span><b>1 неделя</b></div>
-  `;
-}
-
-function comparePay() {
-  const previous = weekByOffset(-1);
-  const should = previous.days.reduce((a, d) => a + d.total, 0);
-  const paid = +document.getElementById("paidAmount").value || 0;
-  const diff = paid - should;
-  document.getElementById("payCompare").innerHTML = `
-    <div class="card">
-      <b>${diff >= 0 ? "✅ Всё нормально" : "⚠️ Не хватает"}</b>
-      <p class="mutedDark">${diff >= 0 ? "Больше/ровно на " + money(diff) : "Разница: " + money(Math.abs(diff))}</p>
-    </div>
-  `;
-}
-
-function exportCSV() {
-  const days = getDays();
-  let csv = "Date,Start,End,Standard,Rubbish,Kg,Hours,Overtime,HourlyPay,Bonus,Total,Note\n";
-  days.forEach(d => {
-    csv += [
-      d.date, d.start, d.end, d.standardBoxes || 0, d.rubbishBoxes || 0, d.kg,
-      d.workHours.toFixed(2), d.overtimeHours.toFixed(2), d.hourlyPay.toFixed(2),
-      d.bonusPay.toFixed(2), d.total.toFixed(2), '"' + (d.note || "") + '"'
-    ].join(",") + "\n";
-  });
-  const blob = new Blob([csv], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "berrypay-report.csv";
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function clearAll() {
-  if (confirm("Delete all?")) {
-    localStorage.removeItem(STORAGE_DAYS);
-    refreshAll();
-    toast("Все записи удалены");
-  }
-}
-
-function refreshAll() {
-  renderWeek();
-  renderStats();
-}
-
-function showTab(id, btn) {
-  document.querySelectorAll("section").forEach(section => section.classList.add("hidden"));
-  document.getElementById(id).classList.remove("hidden");
-  document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
-  btn.classList.add("active");
-  refreshAll();
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-function toggleLang() {
-  const btn = document.getElementById("langBtn");
-  btn.textContent = btn.textContent === "RU" ? "EN" : "RU";
-}
-
-function init() {
-  document.getElementById("date").value = new Date().toISOString().slice(0, 10);
-  loadSettings();
-  refreshAll();
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./service-worker.js").catch(() => {});
-  }
-}
-
+function renderWeek(){const cur=weekByOffset(0),prev=weekByOffset(-1),s=getSettings();const curTotal=cur.days.reduce((a,d)=>a+d.total,0),curKg=cur.days.reduce((a,d)=>a+d.kg,0),prevTotal=prev.days.reduce((a,d)=>a+d.total,0);homeWeekTotal.textContent=weekTotal.textContent=money(curTotal);homeWeekRange.textContent=weekRange.textContent=`${iso(cur.startW)} → ${iso(cur.endW)}`;pendingPay.textContent=pendingPay2.textContent=money(prevTotal);pendingRange.textContent=pendingRange2.textContent=`${iso(prev.startW)} → ${iso(prev.endW)}`;const pd=tr("payday")+iso(payFridayForWeek(prev));pendingDate.textContent=pendingDate2.textContent=pd;goalMoneyText.textContent=money(s.goalMoney);goalKgText.textContent=s.goalKg+" кг";moneyBar.style.width=Math.min(curTotal/s.goalMoney*100,100)+"%";kgBar.style.width=Math.min(curKg/s.goalKg*100,100)+"%";weekList.innerHTML=cur.days.length?cur.days.map(d=>`<div class="row"><div><b>${d.date}</b><div class="muted">${d.start}–${d.end}, ${d.standardBoxes?d.standardBoxes+" ст · ":""}${d.rubbishBoxes?d.rubbishBoxes+" раб · ":""}${d.kg} кг ${d.note?"· "+d.note:""}</div></div><div><b>${money(d.total)}</b><div class="muted">${hoursText(d.workHours)}</div></div></div>`).join(""):`<div class="muted">${tr("noDays")}</div>`;renderCalendar(cur);renderCharts(cur);renderHistory()}
+function renderCalendar(w){let html="",start=new Date(w.startW),worked=new Set(w.days.map(d=>d.date)),today=iso(new Date());for(let i=0;i<7;i++){let d=new Date(start);d.setDate(start.getDate()+i);let id=iso(d);html+=`<div class="day ${worked.has(id)?"worked":""} ${id===today?"todayDay":""}">${id.slice(8)}</div>`}calendar.innerHTML=html}
+function renderCharts(w){let maxPay=Math.max(1,...w.days.map(d=>d.total)),payDays=w.days.length?w.days:[0,0,0,0,0,0,0];earnChart.innerHTML=payDays.map(d=>`<div class="col" style="height:${d.total?Math.max(8,d.total/maxPay*130):8}px"></div>`).join("");let all=getDays(),maxKg=Math.max(1,...all.map(d=>d.kg||0)),kgDays=all.slice(-7).length?all.slice(-7):[0,0,0,0,0,0,0];kgChart.innerHTML=kgDays.map(d=>`<div class="col" style="height:${d.kg?Math.max(8,d.kg/maxKg*130):8}px"></div>`).join("")}
+function renderHistory(){const days=getDays(),map={};days.forEach(day=>{const w=weekStartFriday(new Date(day.date)),key=iso(w);if(!map[key]){let end=new Date(w);end.setDate(w.getDate()+6);map[key]={start:w,end,total:0,kg:0,hours:0,days:0,standard:0,rubbish:0}}map[key].total+=day.total;map[key].kg+=day.kg;map[key].hours+=day.workHours;map[key].days++;map[key].standard+=day.standardBoxes||0;map[key].rubbish+=day.rubbishBoxes||0});const rows=Object.values(map).sort((a,b)=>b.start-a.start);historyList.innerHTML=rows.length?rows.map(r=>`<div class="row"><div><b>${iso(r.start)} → ${iso(r.end)}</b><div class="muted">${r.days} дн · ${r.standard} ст · ${r.rubbish} раб · ${r.kg.toFixed(1)} кг · ${hoursText(r.hours)}</div></div><div><b>${money(r.total)}</b><div class="muted">${tr("payday")}${iso(payFridayForWeek(r))}</div></div></div>`).join(""):`<div class="muted">${tr("noHistory")}</div>`}
+function renderStats(){const days=getDays(),sum=k=>days.reduce((a,d)=>a+(d[k]||0),0),maxKg=days.length?Math.max(...days.map(d=>d.kg||0)):0,maxPay=days.length?Math.max(...days.map(d=>d.total||0)):0,avgKg=days.length?sum("kg")/days.length:0;statsBox.innerHTML=`<div class="mini"><span>${tr("days")}</span><b>${days.length}</b></div><div class="mini"><span>${tr("totalHours")}</span><b>${hoursText(sum("workHours"))}</b></div><div class="mini"><span>${tr("overtime")}</span><b>${hoursText(sum("overtimeHours"))}</b></div><div class="mini"><span>${tr("totalKg")}</span><b>${sum("kg").toFixed(1)}</b></div><div class="mini"><span>${tr("totalStandard")}</span><b>${sum("standardBoxes").toFixed(1)}</b></div><div class="mini"><span>${tr("totalRubbish")}</span><b>${sum("rubbishBoxes").toFixed(1)}</b></div><div class="mini"><span>${tr("avgKg")}</span><b>${avgKg.toFixed(1)}</b></div><div class="mini"><span>${tr("recordKg")}</span><b>${maxKg.toFixed(1)}</b></div><div class="mini"><span>${tr("bestDay")}</span><b>${money(maxPay)}</b></div><div class="mini premiumMini"><span>${tr("total")}</span><b>${money(sum("total"))}</b></div>`;recordsBox.innerHTML=`<div class="mini"><span>${tr("recordKg")}</span><b>${maxKg.toFixed(1)}</b></div><div class="mini"><span>${tr("bestDay")}</span><b>${money(maxPay)}</b></div><div class="mini"><span>${tr("days")}</span><b>${days.length}</b></div><div class="mini premiumMini"><span>${tr("season")}</span><b>${money(sum("total"))}</b></div>`;const s=getSettings();farmBox.innerHTML=`<div class="row"><span>📍 ${tr("farm")}</span><b>${s.farmName}</b></div><div class="row"><span>${tr("rate")}</span><b>${money(s.rate)}/ч</b></div><div class="row"><span>${tr("overtime")}</span><b>${money(s.otRate)}/ч</b></div><div class="row"><span>${tr("normKg")}</span><b>${s.normKg} кг</b></div><div class="row"><span>${tr("bonusKg")}</span><b>${money(s.bonusKg)}/кг</b></div><div class="row"><span>${tr("standardWeight")}</span><b>${s.standardKg} кг</b></div><div class="row"><span>${tr("rubbishWeight")}</span><b>${s.rubbishKg} кг</b></div><div class="row"><span>${tr("delay")}</span><b>${tr("oneWeek")}</b></div>`}
+function comparePay(){const prev=weekByOffset(-1),should=prev.days.reduce((a,d)=>a+d.total,0),paid=+paidAmount.value||0,diff=paid-should;payCompare.innerHTML=`<div class="card"><b>${diff>=0?tr("good"):tr("missing")}</b><p class="muted">${diff>=0?tr("over")+money(diff):tr("diff")+money(Math.abs(diff))}</p></div>`}
+function exportCSV(){const days=getDays();let csv="Date,Start,End,Standard,Rubbish,Kg,Hours,Overtime,HourlyPay,Bonus,Total,Note\n";days.forEach(d=>{csv+=[d.date,d.start,d.end,d.standardBoxes||0,d.rubbishBoxes||0,d.kg,d.workHours.toFixed(2),d.overtimeHours.toFixed(2),d.hourlyPay.toFixed(2),d.bonusPay.toFixed(2),d.total.toFixed(2),'"'+(d.note||"")+'"'].join(",")+"\n"});const blob=new Blob([csv],{type:"text/csv"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="berrypay-report.csv";a.click();URL.revokeObjectURL(url)}
+function clearAll(){if(confirm("Delete all?")){localStorage.removeItem(STORAGE_DAYS);refreshAll();toast(tr("deleted"))}}
+function refreshAll(){applyLang();renderWeek();renderStats()}
+function showTab(id,btn){document.querySelectorAll("section").forEach(s=>s.classList.add("hidden"));document.getElementById(id).classList.remove("hidden");document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));btn.classList.add("active");refreshAll();window.scrollTo({top:0,behavior:"smooth"})}
+function init(){date.value=new Date().toISOString().slice(0,10);loadSettings();applyLang();refreshAll();if("serviceWorker"in navigator)navigator.serviceWorker.register("./service-worker.js").catch(()=>{});setTimeout(()=>{document.getElementById("splash").style.display="none";showLock()},1500)}
 init();

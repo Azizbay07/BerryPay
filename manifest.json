@@ -1,11 +1,11 @@
 {
-  "name": "BerryPay Pro",
+  "name": "BerryPay Premium",
   "short_name": "BerryPay",
   "description": "Premium pay tracker for farm workers",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#06111f",
-  "theme_color": "#06111f",
+  "background_color": "#050b16",
+  "theme_color": "#050b16",
   "orientation": "portrait",
   "icons": [
     {

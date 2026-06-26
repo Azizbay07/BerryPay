@@ -3,142 +3,165 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#06111f" />
+  <meta name="theme-color" content="#050b16" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="BerryPay" />
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icon-192.png" />
   <link rel="stylesheet" href="style.css" />
-  <title>BerryPay Pro</title>
+  <title>BerryPay Premium</title>
 </head>
 <body>
-  <div class="splash">
-    <div class="splashLogo">B</div>
-    <div class="splashTitle">BerryPay Pro</div>
-    <div class="splashSub">Designed &amp; Created by <b>Azizbay 🍓</b><br>Made for Farm Workers</div>
+  <div class="splash" id="splash">
+    <div class="splash-logo">B</div>
+    <div class="splash-title">BerryPay Pro</div>
+    <div class="splash-sub">Designed &amp; Created by <b>Azizbay 🍓</b><br>Made for Farm Workers</div>
   </div>
 
-  <div id="toast" class="toast">Сохранено</div>
+  <div class="lock-screen" id="lockScreen">
+    <div class="lock-card">
+      <div class="lock-logo">B</div>
+      <h1>BerryPay Pro</h1>
+      <p id="lockSubtitle">Enter PIN to continue</p>
+      <div class="pin-dots" id="pinDots"><span></span><span></span><span></span><span></span></div>
+      <div class="pin-pad">
+        <button onclick="pinPress('1')">1</button><button onclick="pinPress('2')">2</button><button onclick="pinPress('3')">3</button>
+        <button onclick="pinPress('4')">4</button><button onclick="pinPress('5')">5</button><button onclick="pinPress('6')">6</button>
+        <button onclick="pinPress('7')">7</button><button onclick="pinPress('8')">8</button><button onclick="pinPress('9')">9</button>
+        <button onclick="resetPinSetup()">Reset</button><button onclick="pinPress('0')">0</button><button onclick="pinBack()">⌫</button>
+      </div>
+      <button class="face-btn" onclick="faceUnlock()">🔐 <span id="faceText">Face ID / Quick unlock</span></button>
+      <p class="lock-note" id="pinHint">First launch: create a 4 digit PIN.</p>
+    </div>
+  </div>
 
-  <div class="app">
-    <div class="top">
+  <div id="toast" class="toast">Saved</div>
+
+  <main class="app" id="appRoot">
+    <header class="top">
       <div class="brand">
         <div class="logo">B</div>
         <div>
           <h1>BerryPay</h1>
-          <div class="sub">Pro · 1 week pay delay</div>
+          <div class="sub" data-i18n="tagline">Premium farm pay tracker</div>
         </div>
       </div>
       <button class="langBtn" onclick="toggleLang()" id="langBtn">RU</button>
-    </div>
+    </header>
 
     <section id="home" class="screen">
-      <div class="card paycard">
-        <div class="pill">💷 <span>Ожидает выплаты</span></div>
-        <div id="pendingPay" class="big">£0.00</div>
-        <div id="pendingRange"></div>
-        <div id="pendingDate" class="muted"></div>
+      <div class="bank-card paycard">
+        <div class="card-top">
+          <div class="pill">💷 <span data-i18n="pendingPay">Ожидает выплаты</span></div>
+          <div class="chip"></div>
+        </div>
+        <div id="pendingPay" class="balance">£0.00</div>
+        <div class="card-bottom">
+          <span id="pendingRange">—</span>
+          <span id="pendingDate">—</span>
+        </div>
       </div>
 
-      <div class="card currentcard">
-        <div class="pill">🍓 <span>Текущая неделя</span></div>
-        <div id="homeWeekTotal" class="big">£0.00</div>
-        <div id="homeWeekRange"></div>
-        <div class="mutedDark">Эту сумму получишь на следующей выплате</div>
+      <div class="bank-card dark-card">
+        <div class="pill">🍓 <span data-i18n="currentWeek">Текущая неделя</span></div>
+        <div id="homeWeekTotal" class="balance">£0.00</div>
+        <div id="homeWeekRange">—</div>
+        <div class="muted" data-i18n="nextPaymentNote">Эту сумму получишь на следующей выплате</div>
       </div>
 
-      <div class="card">
-        <h2>🍓 Сегодня</h2>
+      <div class="card today-card">
+        <div class="section-head">
+          <h2>🍓 <span data-i18n="today">Сегодня</span></h2>
+          <button class="tiny" onclick="calculatePreview()" data-i18n="refresh">Обновить</button>
+        </div>
         <div class="result" id="todayHarvestCard">
-          <div class="mini"><span>Стандарт</span><b>0</b></div>
-          <div class="mini"><span>Рабиш</span><b>0</b></div>
-          <div class="mini"><span>Всего кг</span><b>0 кг</b></div>
-          <div class="mini premiumMini"><span>Сегодня</span><b>£0.00</b></div>
+          <div class="mini"><span data-i18n="standard">Стандарт</span><b>0</b></div>
+          <div class="mini"><span data-i18n="rubbish">Рабиш</span><b>0</b></div>
+          <div class="mini"><span data-i18n="totalKg">Всего кг</span><b>0 кг</b></div>
+          <div class="mini premiumMini"><span data-i18n="today">Сегодня</span><b>£0.00</b></div>
         </div>
       </div>
 
       <div class="card">
-        <h2>Быстрые действия</h2>
+        <h2 data-i18n="quickActions">Быстрые действия</h2>
         <div class="quick">
-          <button class="green" onclick="setStartNow()">▶️ Начать</button>
-          <button class="primary" onclick="setEndNow()">⏹️ Закончить</button>
+          <button class="green" onclick="setStartNow()">▶️ <span data-i18n="start">Начать</span></button>
+          <button class="primary" onclick="setEndNow()">⏹️ <span data-i18n="finish">Закончить</span></button>
         </div>
 
-        <label>Дата</label>
+        <label data-i18n="date">Дата</label>
         <input id="date" type="date" />
 
         <div class="grid">
-          <div><label>Начало</label><input id="start" type="time" value="05:00" /></div>
-          <div><label>Конец</label><input id="end" type="time" value="17:00" /></div>
+          <div><label data-i18n="startTime">Начало</label><input id="start" type="time" value="05:00" /></div>
+          <div><label data-i18n="endTime">Конец</label><input id="end" type="time" value="17:00" /></div>
         </div>
 
         <div class="grid">
-          <div><label>Стандарт</label><input id="standardBoxes" type="number" inputmode="decimal" placeholder="Например 50" oninput="updateKgFromHarvest()" /></div>
-          <div><label>Рабиш</label><input id="rubbishBoxes" type="number" inputmode="decimal" placeholder="Например 6" oninput="updateKgFromHarvest()" /></div>
+          <div><label data-i18n="standard">Стандарт</label><input id="standardBoxes" type="number" inputmode="decimal" placeholder="50" oninput="updateKgFromHarvest()" /></div>
+          <div><label data-i18n="rubbish">Рабиш</label><input id="rubbishBoxes" type="number" inputmode="decimal" placeholder="6" oninput="updateKgFromHarvest()" /></div>
         </div>
 
-        <label>Килограммы</label>
+        <label data-i18n="kilograms">Килограммы</label>
         <input id="kg" type="number" inputmode="decimal" placeholder="Автоматически" />
 
-        <label>Заметка</label>
+        <label data-i18n="note">Заметка</label>
         <input id="note" type="text" placeholder="Например дождь, тяжёлый день" />
 
-        <button class="secondary" onclick="calculatePreview()">Рассчитать</button>
-        <button class="primary" onclick="saveDay()">Сохранить день</button>
+        <button class="secondary" onclick="calculatePreview()" data-i18n="calculate">Рассчитать</button>
+        <button class="primary" onclick="saveDay()" data-i18n="saveDay">Сохранить день</button>
 
         <div id="preview" class="result"></div>
       </div>
 
       <div class="card">
-        <h2>Цели текущей недели</h2>
+        <h2 data-i18n="goals">Цели текущей недели</h2>
         <div class="grid">
-          <div class="mini"><span>Money goal</span><b id="goalMoneyText">£1000</b></div>
-          <div class="mini"><span>Kg goal</span><b id="goalKgText">400 кг</b></div>
+          <div class="mini"><span data-i18n="moneyGoal">Money goal</span><b id="goalMoneyText">£1000</b></div>
+          <div class="mini"><span data-i18n="kgGoal">Kg goal</span><b id="goalKgText">400 кг</b></div>
         </div>
-
-        <div class="mutedDark mt">Money progress</div>
+        <div class="muted mt" data-i18n="moneyProgress">Money progress</div>
         <div class="progress"><div id="moneyBar" class="bar"></div></div>
-        <div class="mutedDark mt">Kg progress</div>
+        <div class="muted mt" data-i18n="kgProgress">Kg progress</div>
         <div class="progress"><div id="kgBar" class="bar"></div></div>
-
         <div class="grid mt">
-          <div><label>Цель £</label><input id="quickGoalMoney" type="number" value="1000" step="1" /></div>
-          <div><label>Цель кг</label><input id="quickGoalKg" type="number" value="400" step="1" /></div>
+          <div><label data-i18n="goalPounds">Цель £</label><input id="quickGoalMoney" type="number" value="1000" step="1" /></div>
+          <div><label data-i18n="goalKgInput">Цель кг</label><input id="quickGoalKg" type="number" value="400" step="1" /></div>
         </div>
-        <button class="secondary" onclick="saveQuickGoals()">Сохранить цели</button>
+        <button class="secondary" onclick="saveQuickGoals()" data-i18n="saveGoals">Сохранить цели</button>
       </div>
     </section>
 
     <section id="week" class="hidden screen">
-      <div class="card paycard">
-        <div>Ближайшая выплата</div>
-        <div id="pendingPay2" class="big">£0.00</div>
+      <div class="bank-card paycard">
+        <div data-i18n="nearestPayment">Ближайшая выплата</div>
+        <div id="pendingPay2" class="balance">£0.00</div>
         <div id="pendingRange2"></div>
         <div id="pendingDate2" class="muted"></div>
       </div>
-      <div class="card hero">
-        <div>Текущая неделя</div>
-        <div id="weekTotal" class="big">£0.00</div>
+      <div class="bank-card dark-card">
+        <div data-i18n="currentWeek">Текущая неделя</div>
+        <div id="weekTotal" class="balance">£0.00</div>
         <div id="weekRange"></div>
       </div>
-      <div class="card"><h2>Календарь недели</h2><div id="calendar" class="calendar"></div></div>
-      <div class="card"><h2>Доход по дням</h2><div id="earnChart" class="chart"></div></div>
-      <div class="card"><h2>Дни недели</h2><div id="weekList"></div></div>
+      <div class="card"><h2 data-i18n="weekCalendar">Календарь недели</h2><div id="calendar" class="calendar"></div></div>
+      <div class="card"><h2 data-i18n="dailyIncome">Доход по дням</h2><div id="earnChart" class="chart"></div></div>
+      <div class="card"><h2 data-i18n="weekDays">Дни недели</h2><div id="weekList"></div></div>
     </section>
 
     <section id="history" class="hidden screen">
-      <div class="card"><h2>История недель</h2><div id="historyList"></div></div>
+      <div class="card"><h2 data-i18n="weekHistory">История недель</h2><div id="historyList"></div></div>
     </section>
 
     <section id="stats" class="hidden screen">
-      <div class="card"><h2>Статистика</h2><div id="statsBox" class="result"></div></div>
-      <div class="card"><h2>Кг по дням</h2><div id="kgChart" class="chart"></div></div>
+      <div class="card"><h2 data-i18n="statistics">Статистика</h2><div id="statsBox" class="result"></div></div>
+      <div class="card"><h2 data-i18n="kgByDays">Кг по дням</h2><div id="kgChart" class="chart"></div></div>
       <div class="card">
-        <h2>Проверить ближайшую выплату</h2>
-        <label>Сколько пришло на карту?</label>
-        <input id="paidAmount" type="number" inputmode="decimal" placeholder="Например 950" />
-        <button class="secondary" onclick="comparePay()">Проверить</button>
+        <h2 data-i18n="checkPayment">Проверить ближайшую выплату</h2>
+        <label data-i18n="amountReceived">Сколько пришло на карту?</label>
+        <input id="paidAmount" type="number" inputmode="decimal" placeholder="950" />
+        <button class="secondary" onclick="comparePay()" data-i18n="check">Проверить</button>
         <div id="payCompare"></div>
       </div>
     </section>
@@ -147,42 +170,43 @@
       <div class="card center">
         <div class="logo centerLogo">B</div>
         <h2>BerryPay Pro</h2>
-        <div class="mutedDark">Designed &amp; Created by <b>Azizbay 🍓</b><br>Made for Farm Workers</div>
+        <div class="muted">Designed &amp; Created by <b>Azizbay 🍓</b><br>Made for Farm Workers</div>
       </div>
-      <div class="card"><h2>Рекорды</h2><div id="recordsBox" class="result"></div></div>
-      <div class="card"><h2>Моя ферма</h2><div id="farmBox"></div></div>
-      <div class="card"><h2>О приложении</h2><p class="mutedDark">BerryPay создан для работников ягодных ферм Великобритании. Идея проекта — Azizbay.</p></div>
+      <div class="card"><h2 data-i18n="records">Рекорды</h2><div id="recordsBox" class="result"></div></div>
+      <div class="card"><h2 data-i18n="myFarm">Моя ферма</h2><div id="farmBox"></div></div>
+      <div class="card"><h2 data-i18n="about">О приложении</h2><p class="muted" data-i18n="aboutText">BerryPay создан для работников ягодных ферм Великобритании. Идея проекта — Azizbay.</p></div>
     </section>
 
     <section id="settings" class="hidden screen">
       <div class="card">
-        <h2>Настройки</h2>
-        <label>Обычная ставка £/час</label><input id="rate" type="number" value="12.71" step="0.01" />
-        <label>Овертайм £/час</label><input id="otRate" type="number" value="19.07" step="0.01" />
-        <label>Норма кг</label><input id="normKg" type="number" value="48" step="0.1" />
-        <label>Бонус за кг £</label><input id="bonusKg" type="number" value="0.75" step="0.01" />
-        <label>Вес стандарта, кг</label><input id="standardKg" type="number" value="1.5" step="0.1" />
-        <label>Вес рабиш-ящика, кг</label><input id="rubbishKg" type="number" value="4" step="0.1" />
-        <label>Цель недели £</label><input id="goalMoney" type="number" value="1000" step="1" />
-        <label>Цель недели кг</label><input id="goalKg" type="number" value="400" step="1" />
-        <label>Название фермы</label><input id="farmName" type="text" value="East Seaton Farm" />
-        <button class="primary" onclick="saveSettings()">Сохранить настройки</button>
-        <button class="secondary" onclick="exportCSV()">Скачать CSV</button>
-        <button class="danger" onclick="clearAll()">Очистить все записи</button>
+        <h2 data-i18n="settings">Настройки</h2>
+        <label data-i18n="normalRate">Обычная ставка £/час</label><input id="rate" type="number" value="12.71" step="0.01" />
+        <label data-i18n="overtimeRate">Овертайм £/час</label><input id="otRate" type="number" value="19.07" step="0.01" />
+        <label data-i18n="normKg">Норма кг</label><input id="normKg" type="number" value="48" step="0.1" />
+        <label data-i18n="bonusKg">Бонус за кг £</label><input id="bonusKg" type="number" value="0.75" step="0.01" />
+        <label data-i18n="standardWeight">Вес стандарта, кг</label><input id="standardKg" type="number" value="1.5" step="0.1" />
+        <label data-i18n="rubbishWeight">Вес рабиш-ящика, кг</label><input id="rubbishKg" type="number" value="4" step="0.1" />
+        <label data-i18n="weeklyGoalPounds">Цель недели £</label><input id="goalMoney" type="number" value="1000" step="1" />
+        <label data-i18n="weeklyGoalKg">Цель недели кг</label><input id="goalKg" type="number" value="400" step="1" />
+        <label data-i18n="farmName">Название фермы</label><input id="farmName" type="text" value="East Seaton Farm" />
+        <button class="primary" onclick="saveSettings()" data-i18n="saveSettings">Сохранить настройки</button>
+        <button class="secondary" onclick="changePin()" data-i18n="changePin">Изменить PIN</button>
+        <button class="secondary" onclick="exportCSV()" data-i18n="downloadCsv">Скачать CSV</button>
+        <button class="danger" onclick="clearAll()" data-i18n="clearAll">Очистить все записи</button>
       </div>
     </section>
-  </div>
+  </main>
 
-  <div class="nav">
+  <nav class="nav">
     <div class="nav-inner">
-      <button class="tab active" onclick="showTab('home', this)">⌂<br>Главная</button>
-      <button class="tab" onclick="showTab('week', this)">□<br>Неделя</button>
-      <button class="tab" onclick="showTab('history', this)">↺<br>История</button>
-      <button class="tab" onclick="showTab('stats', this)">◌<br>Стат.</button>
-      <button class="tab" onclick="showTab('profile', this)">◇<br>Профиль</button>
-      <button class="tab" onclick="showTab('settings', this)">⚙<br>Настройки</button>
+      <button class="tab active" onclick="showTab('home', this)">⌂<br><span data-i18n="navHome">Главная</span></button>
+      <button class="tab" onclick="showTab('week', this)">□<br><span data-i18n="navWeek">Неделя</span></button>
+      <button class="tab" onclick="showTab('history', this)">↺<br><span data-i18n="navHistory">История</span></button>
+      <button class="tab" onclick="showTab('stats', this)">◌<br><span data-i18n="navStats">Стат.</span></button>
+      <button class="tab" onclick="showTab('profile', this)">◇<br><span data-i18n="navProfile">Профиль</span></button>
+      <button class="tab" onclick="showTab('settings', this)">⚙<br><span data-i18n="navSettings">Настройки</span></button>
     </div>
-  </div>
+  </nav>
 
   <script src="app.js"></script>
 </body>
