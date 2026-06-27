@@ -1,12 +1,10 @@
 {
-  "name": "BerryPay Pro",
+  "name": "BerryPay 9.0 Pro",
   "short_name": "BerryPay",
-  "description": "Premium farm pay tracker",
-  "start_url": "./index.html",
+  "start_url": "./index.html?v=90",
   "display": "standalone",
-  "background_color": "#050b16",
-  "theme_color": "#050b16",
-  "orientation": "portrait",
+  "background_color": "#050816",
+  "theme_color": "#050816",
   "icons": [
     {
       "src": "icon-192.png",
